@@ -335,6 +335,16 @@ def get_db_connection():
     conn = psycopg2.connect(DATABASE_URL)
     return conn
 
+def update_channel_state(channel_username: str, last_processed_id: int) -> None:
+    """Upserts the last processed message ID for a channel."""
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO channel_state (channel_id, last_processed_id) VALUES (%s, %s) ON CONFLICT (channel_id) DO UPDATE SET last_processed_id = %s",
+                (channel_username, last_processed_id, last_processed_id)
+            )
+        conn.commit()
+
 def init_db():
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
@@ -718,6 +728,7 @@ async def run_scraper(client, notify=None):
                     i += 1
                     continue
 
+                processed_ids_this = set()
                 log(f"Processing message {i+1}/{len(messages)} in {channel_username}, ID: {msg.id}...")
 
                 images = []
@@ -727,6 +738,8 @@ async def run_scraper(client, notify=None):
 
                 if not is_car_post:
                     log(f"Skipping message {msg.id} as it is not a car post in {channel_username}.")
+                    processed_ids_this.add(msg.id)
+                    update_channel_state(channel_username, msg.id)
                     i += 1
                     continue
                 
@@ -740,6 +753,7 @@ async def run_scraper(client, notify=None):
                             if m.caption:
                                 caption_text = m.caption
                             processed_message_ids.add(m.id)
+                            processed_ids_this.add(m.id)
                     except Exception as e:
                         log(f"Error getting media group for msg {msg.id} in {channel_username}: {e}")
                         i += 1
@@ -748,6 +762,7 @@ async def run_scraper(client, notify=None):
                     images.append(msg.photo.file_id)
                     caption_text = msg.caption
                     processed_message_ids.add(msg.id)
+                    processed_ids_this.add(msg.id)
 
                 if not caption_text:
                     last_msg_index = message_index_map.get(message_to_process.id)
@@ -761,6 +776,7 @@ async def run_scraper(client, notify=None):
                                 log(f"Found caption for post {message_to_process.id} in subsequent message {next_msg.id} for {channel_username}.")
                                 caption_text = next_msg.text
                                 processed_message_ids.add(next_msg.id)
+                                processed_ids_this.add(next_msg.id)
 
                 parsed = await parse_caption(caption_text)
 
@@ -774,6 +790,8 @@ async def run_scraper(client, notify=None):
                         )
                     except Exception as e:
                         log(f"Failed to forward non-sale post {message_to_process.id} to admin: {e}")
+                    if processed_ids_this:
+                        update_channel_state(channel_username, max(processed_ids_this))
                     i += 1
                     continue
 
@@ -824,12 +842,9 @@ async def run_scraper(client, notify=None):
                                 my_msg_id
                             )
                         )
-                        # Update last_processed_id for this channel after successful insert
-                        cursor.execute(
-                            "INSERT INTO channel_state (channel_id, last_processed_id) VALUES (%s, %s) ON CONFLICT (channel_id) DO UPDATE SET last_processed_id = %s",
-                            (channel_username, message_to_process.id, message_to_process.id)
-                        )
                     conn.commit()
+                if processed_ids_this:
+                    update_channel_state(channel_username, max(processed_ids_this))
                 log(f"Inserted Car ID {car_id} into DB for source message {message_to_process.id} from {channel_username}. Updated state.")
                 i += 1
             

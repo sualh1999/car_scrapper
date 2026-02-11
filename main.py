@@ -35,7 +35,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME") # New: Admin username for Pyrogram filters
 is_scraping = False
-
+AI_MODEL_NAME = "tngtech/deepseek-r1t2-chimera:free"
 
 # Global async client for bot API calls
 http_client = httpx.AsyncClient()
@@ -219,7 +219,7 @@ async def parse_caption(caption: str | None):
         client = random.choice(ai_clients)
         log("Sending caption to OpenRouter for parsing...")
         completion = await client.chat.completions.create(
-            model="tngtech/deepseek-r1t2-chimera:free",
+            model=AI_MODEL_NAME,
             response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": "You are a strict car ad parser that only returns a single, valid JSON object based on the user's request. Your first task is to decide if the ad is for selling a car. If not, you must return null for all fields except 'is_for_sale_post'."},

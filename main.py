@@ -35,7 +35,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME") # New: Admin username for Pyrogram filters
 is_scraping = False
-AI_MODEL_NAME = "tngtech/deepseek-r1t2-chimera:free"
+AI_MODEL_NAME = "Qwen/Qwen3-Coder-Next:novita"
 
 # Global async client for bot API calls
 http_client = httpx.AsyncClient()
@@ -47,28 +47,28 @@ is_admin_pyrogram = filters.create(lambda _, __, m: m.from_user and m.from_user.
 # ---------- USERBOT ----------
 # u_app = Client(SESSION_NAME, api_id=API_ID, api_hash=API_HASH, session_string=os.getenv("SESSION_STRING"))
 
-# ---------- OPENROUTER CONFIG ----------
+# ---------- HUGGING FACE ROUTER CONFIG ----------
 def _load_ai_clients():
     clients = []
     i = 0
     while True:
-        key = os.getenv(f"OPENROUTER_API_KEY__{i}")
+        key = os.getenv(f"HF_TOKEN__{i}")
         if key:
-            clients.append(AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key=key))
+            clients.append(AsyncOpenAI(base_url="https://router.huggingface.co/v1", api_key=key))
             i += 1
         else:
             # Also check for the single key for backward compatibility
             if i == 0:
-                single_key = os.getenv("OPENROUTER_API_KEY")
+                single_key = os.getenv("HF_TOKEN")
                 if single_key:
-                    clients.append(AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key=single_key))
+                    clients.append(AsyncOpenAI(base_url="https://router.huggingface.co/v1", api_key=single_key))
             break
-    print(f"Loaded {len(clients)} OpenRouter AI clients.")
+    print(f"Loaded {len(clients)} Hugging Face Router AI clients.")
     return clients
 
 ai_clients = _load_ai_clients()
 if not ai_clients:
-    print("Warning: No OPENROUTER_API_KEY or OPENROUTER_API_KEY__n environment variables set. AI caption parsing will be disabled.")
+    print("Warning: No HF_TOKEN or HF_TOKEN__n environment variables set. AI caption parsing will be disabled.")
     
 if not BOT_TOKEN:
 	print("ERROR: No Bot Token Found!")
@@ -217,7 +217,7 @@ async def parse_caption(caption: str | None):
     
     try:
         client = random.choice(ai_clients)
-        log("Sending caption to OpenRouter for parsing...")
+        log("Sending caption to Hugging Face Router for parsing...")
         completion = await client.chat.completions.create(
             model=AI_MODEL_NAME,
             response_format={"type": "json_object"},
@@ -227,10 +227,10 @@ async def parse_caption(caption: str | None):
             ]
         )
         response_content = completion.choices[0].message.content
-        log(f"Received from OpenRouter: {response_content}")
+        log(f"Received from Hugging Face Router: {response_content}")
         return json.loads(response_content)
     except Exception as e:
-        log(f"Error calling OpenRouter or parsing response: {e}")
+        log(f"Error calling Hugging Face Router or parsing response: {e}")
         return None
 
 async def fetch_next_msg(client, msg):

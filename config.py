@@ -16,7 +16,7 @@ ADMIN_ID = int(ADMIN_ID_RAW) if ADMIN_ID_RAW and ADMIN_ID_RAW.isdigit() else Non
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
 CRON_SECRET = os.getenv("CRON_SECRET")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-AI_MODEL_NAME = os.getenv("AI_MODEL_NAME", "Qwen/Qwen3-Coder-Next:novita")
+AI_MODEL_NAME = os.getenv("AI_MODEL_NAME", "openrouter/free")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 

@@ -6,7 +6,7 @@ from datetime import datetime
 
 from openai import AsyncOpenAI
 
-from config import AI_API_KEY, AI_BASE_URL, AI_MODEL_NAME
+from config import AI_MODEL_NAME, OPENROUTER_BASE_URL
 from db import CARS_TABLE, get_db_connection
 
 
@@ -15,29 +15,20 @@ def log(msg: str):
 
 
 def _load_ai_clients():
-    base_url = AI_BASE_URL.rstrip("/")
-    is_router = "router.huggingface.co" in base_url
     clients = []
-
-    if is_router:
-        i = 0
-        while True:
-            key = os.getenv(f"HF_TOKEN__{i}")
-            if key:
-                clients.append(AsyncOpenAI(base_url=base_url, api_key=key))
-                i += 1
-            else:
-                if i == 0:
-                    single_key = os.getenv("HF_TOKEN")
-                    if single_key:
-                        clients.append(AsyncOpenAI(base_url=base_url, api_key=single_key))
-                break
-        log(f"Loaded {len(clients)} Hugging Face Router AI clients from {base_url}.")
-    else:
-        api_key = AI_API_KEY or os.getenv("HF_TOKEN") or "no-key-required"
-        clients.append(AsyncOpenAI(base_url=base_url, api_key=api_key))
-        log(f"Loaded 1 custom AI client from {base_url}.")
-
+    i = 0
+    while True:
+        key = os.getenv(f"OPENROUTER_API_KEY__{i}")
+        if key:
+            clients.append(AsyncOpenAI(base_url=OPENROUTER_BASE_URL, api_key=key))
+            i += 1
+        else:
+            if i == 0:
+                single_key = os.getenv("OPENROUTER_API_KEY")
+                if single_key:
+                    clients.append(AsyncOpenAI(base_url=OPENROUTER_BASE_URL, api_key=single_key))
+            break
+    log(f"Loaded {len(clients)} OpenRouter AI clients.")
     return clients
 
 
@@ -275,16 +266,13 @@ Your primary goal is to determine if the ad is for selling a car and then extrac
         completion_kwargs = {
             "model": AI_MODEL_NAME,
             "messages": messages,
+            "response_format": {"type": "json_object"},
         }
-        # Some OpenAI-compatible endpoints (e.g. custom Spaces) reject response_format.
-        if "router.huggingface.co" in AI_BASE_URL:
-            completion_kwargs["response_format"] = {"type": "json_object"}
-
-        log(f"Sending caption to AI parser at {AI_BASE_URL}...")
+        log("Sending caption to OpenRouter for parsing...")
         completion = await client.chat.completions.create(**completion_kwargs)
         response_content = completion.choices[0].message.content
-        log(f"Received from AI parser: {response_content}")
+        log(f"Received from OpenRouter: {response_content}")
         return _parse_llm_json(response_content)
     except Exception as e:
-        log(f"Error calling AI parser or parsing response: {e}")
+        log(f"Error calling OpenRouter or parsing response: {e}")
         return None

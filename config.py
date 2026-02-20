@@ -17,8 +17,7 @@ ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
 CRON_SECRET = os.getenv("CRON_SECRET")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 AI_MODEL_NAME = os.getenv("AI_MODEL_NAME", "Qwen/Qwen3-Coder-Next:novita")
-AI_BASE_URL = os.getenv("AI_BASE_URL", "https://router.huggingface.co/v1")
-AI_API_KEY = os.getenv("AI_API_KEY")
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 
 def validate_required_settings() -> list[str]:

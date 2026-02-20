@@ -1,10 +1,10 @@
 # Telegram Car Scraper
 
-Scrapes Telegram car listings, parses captions with Hugging Face Router LLMs, reposts structured listings to a target channel, and exposes a small FastAPI interface.
+Scrapes Telegram car listings, parses captions with OpenAI-compatible LLM endpoints (Hugging Face Router or custom HF Spaces), reposts structured listings to a target channel, and exposes a small FastAPI interface.
 
 ## Features
 - Scrape source Telegram channels via Pyrogram session
-- Parse listing captions into structured JSON with HF Router model
+- Parse listing captions into structured JSON with an OpenAI-compatible model endpoint
 - Repost listings with formatted caption and generated short ID
 - Store listings in PostgreSQL
 - Query listing details by ID from bot-forwarded posts and `/car?car_id=...`
@@ -21,7 +21,7 @@ Scrapes Telegram car listings, parses captions with Hugging Face Router LLMs, re
 - PostgreSQL
 - Telegram API credentials + Pyrogram session
 - Telegram bot token
-- Hugging Face token (`HF_TOKEN`)
+- LLM endpoint (`AI_BASE_URL`) and model (`AI_MODEL_NAME`)
 
 Install dependencies:
 
@@ -44,6 +44,20 @@ Required variables:
 - `DATABASE_URL`
 - `MY_CHANNEL_ID`
 - `ADMIN_ID`
+
+AI variables:
+- `AI_BASE_URL` (default: `https://router.huggingface.co/v1`)
+- `AI_MODEL_NAME` (router example: `Qwen/Qwen3-Coder-Next:novita`, HF Space example: `model.gguf`)
+- `HF_TOKEN` (used for router by default)
+- `AI_API_KEY` (optional, for custom endpoints if needed)
+
+HF Space example:
+
+```env
+AI_BASE_URL=https://Salihq19-qwen0ai.hf.space/v1
+AI_MODEL_NAME=model.gguf
+AI_API_KEY=
+```
 
 ## Run
 Start API server:

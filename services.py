@@ -6,7 +6,7 @@ from datetime import datetime
 
 from openai import AsyncOpenAI
 
-from config import AI_MODEL_NAME
+from config import AI_API_KEY, AI_BASE_URL, AI_MODEL_NAME
 from db import CARS_TABLE, get_db_connection
 
 
@@ -15,26 +15,29 @@ def log(msg: str):
 
 
 def _load_ai_clients():
+    base_url = AI_BASE_URL.rstrip("/")
+    is_router = "router.huggingface.co" in base_url
     clients = []
-    i = 0
-    while True:
-        key = os.getenv(f"HF_TOKEN__{i}")
-        if key:
-            clients.append(
-                AsyncOpenAI(base_url="https://router.huggingface.co/v1", api_key=key)
-            )
-            i += 1
-        else:
-            if i == 0:
-                single_key = os.getenv("HF_TOKEN")
-                if single_key:
-                    clients.append(
-                        AsyncOpenAI(
-                            base_url="https://router.huggingface.co/v1", api_key=single_key
-                        )
-                    )
-            break
-    log(f"Loaded {len(clients)} Hugging Face Router AI clients.")
+
+    if is_router:
+        i = 0
+        while True:
+            key = os.getenv(f"HF_TOKEN__{i}")
+            if key:
+                clients.append(AsyncOpenAI(base_url=base_url, api_key=key))
+                i += 1
+            else:
+                if i == 0:
+                    single_key = os.getenv("HF_TOKEN")
+                    if single_key:
+                        clients.append(AsyncOpenAI(base_url=base_url, api_key=single_key))
+                break
+        log(f"Loaded {len(clients)} Hugging Face Router AI clients from {base_url}.")
+    else:
+        api_key = AI_API_KEY or os.getenv("HF_TOKEN") or "no-key-required"
+        clients.append(AsyncOpenAI(base_url=base_url, api_key=api_key))
+        log(f"Loaded 1 custom AI client from {base_url}.")
+
     return clients
 
 
@@ -52,6 +55,34 @@ def _format_number(value):
         return f"{int(float(str(value).replace(',', ''))):,}"
     except (ValueError, TypeError):
         return value
+
+
+def _parse_llm_json(raw_content: str):
+    text = (raw_content or "").strip()
+    if not text:
+        raise ValueError("Empty model response.")
+
+    # Handle fenced markdown blocks like ```json ... ```
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s*```$", "", text)
+        text = text.strip()
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        # Fallback: extract the first JSON object/array if model adds extra text.
+        obj_start = text.find("{")
+        obj_end = text.rfind("}")
+        if obj_start != -1 and obj_end != -1 and obj_end > obj_start:
+            return json.loads(text[obj_start : obj_end + 1])
+
+        arr_start = text.find("[")
+        arr_end = text.rfind("]")
+        if arr_start != -1 and arr_end != -1 and arr_end > arr_start:
+            return json.loads(text[arr_start : arr_end + 1])
+
+        raise
 
 
 def format_caption_from_json(parsed_data: dict) -> str:
@@ -234,23 +265,26 @@ Your primary goal is to determine if the ad is for selling a car and then extrac
 
     try:
         client = random.choice(ai_clients)
-        log("Sending caption to Hugging Face Router for parsing...")
-        completion = await client.chat.completions.create(
-            model=AI_MODEL_NAME,
-            response_format={"type": "json_object"},
-            messages=[
-                {
-                    "role": "system",
-                    "content": "Return a single valid JSON object only.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-        )
+        messages = [
+            {
+                "role": "system",
+                "content": "Return a single valid JSON object only.",
+            },
+            {"role": "user", "content": prompt},
+        ]
+        completion_kwargs = {
+            "model": AI_MODEL_NAME,
+            "messages": messages,
+        }
+        # Some OpenAI-compatible endpoints (e.g. custom Spaces) reject response_format.
+        if "router.huggingface.co" in AI_BASE_URL:
+            completion_kwargs["response_format"] = {"type": "json_object"}
+
+        log(f"Sending caption to AI parser at {AI_BASE_URL}...")
+        completion = await client.chat.completions.create(**completion_kwargs)
         response_content = completion.choices[0].message.content
-        log(f"Received from Hugging Face Router: {response_content}")
-        return json.loads(response_content)
+        log(f"Received from AI parser: {response_content}")
+        return _parse_llm_json(response_content)
     except Exception as e:
-        log(f"Error calling Hugging Face Router or parsing response: {e}")
+        log(f"Error calling AI parser or parsing response: {e}")
         return None
-
-

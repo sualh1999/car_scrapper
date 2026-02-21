@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 __pycache__/
 *.py[cod]
 *.pyo
@@ -14,3 +15,6 @@ venv/
 .coverage
 htmlcov/
 .DS_Store
+=======
+.env
+>>>>>>> 6769951 (Add .env to .gitignore)

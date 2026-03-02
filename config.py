@@ -1,13 +1,19 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+from pathlib import Path
+load_dotenv(dotenv_path=Path(__file__).parent / ".env")
 
 API_ID = os.getenv("API_ID")
 API_HASH = os.getenv("API_HASH")
 SESSION_STRING = os.getenv("SESSION_STRING")
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip().strip('"').strip("'")
 BOT_API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}" if BOT_TOKEN else ""
+
+if not BOT_TOKEN:
+    print(f"[{os.getpid()}] WARNING: BOT_TOKEN is empty in environment!")
+else:
+    print(f"[{os.getpid()}] BOT_TOKEN loaded (length: {len(BOT_TOKEN)})")
 SESSION_NAME = os.getenv("SESSION_NAME", "/tmp/my_account")
 MY_CHANNEL_ID = os.getenv("MY_CHANNEL_ID")
 DATABASE_URL = os.getenv("DATABASE_URL")

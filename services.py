@@ -76,6 +76,35 @@ def _parse_llm_json(raw_content: str):
         raise
 
 
+def _has_phone_number(text: str) -> bool:
+    if not text or not isinstance(text, str):
+        return False
+    # Regex matches +251, 251, 0, or "plus251" followed by 9 digits (typically starting with 7 or 9)
+    pattern = r"(?:\+251|251|0|plus251)[79]\d{8}"
+    return bool(re.search(pattern, text))
+
+
+def _clean_phone_numbers(data):
+    if isinstance(data, dict):
+        new_data = {}
+        for key, value in data.items():
+            if key == "additional_details" and isinstance(value, list):
+                new_data[key] = [item for item in value if not _has_phone_number(item)]
+            elif isinstance(value, (dict, list)):
+                new_data[key] = _clean_phone_numbers(value)
+            elif isinstance(value, str):
+                if _has_phone_number(value):
+                    new_data[key] = None
+                else:
+                    new_data[key] = value
+            else:
+                new_data[key] = value
+        return new_data
+    elif isinstance(data, list):
+        return [_clean_phone_numbers(item) for item in data]
+    return data
+
+
 def format_caption_from_json(parsed_data: dict) -> str:
     if not parsed_data or not parsed_data.get("is_for_sale_post"):
         log("format_caption_from_json called with invalid data, returning empty.")
@@ -272,7 +301,8 @@ Your primary goal is to determine if the ad is for selling a car and then extrac
         completion = await client.chat.completions.create(**completion_kwargs)
         response_content = completion.choices[0].message.content
         log(f"Received from OpenRouter: {response_content}")
-        return _parse_llm_json(response_content)
+        parsed = _parse_llm_json(response_content)
+        return _clean_phone_numbers(parsed)
     except Exception as e:
         log(f"Error calling OpenRouter or parsing response: {e}")
         return None

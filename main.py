@@ -47,11 +47,6 @@ async def telegram_webhook(request: Request):
     if not message:
         return {"status": "ignored"}
 
-    sender_id = message.get("from", {}).get("id")
-    if sender_id != ADMIN_ID:
-        log(f"Update rejected: not from admin. From ID: {sender_id}")
-        return {"status": "unauthorized"}
-
     # Route to appropriate handler
     if "forward_date" in message or "forward_from" in message:
         await handle_bot_forward(http_client, message)

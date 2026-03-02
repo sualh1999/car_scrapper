@@ -6,6 +6,7 @@ import psycopg2
 from pyrogram import Client
 
 from config import (
+    ADMIN_ID,
     API_HASH,
     API_ID,
     BOT_API_URL,
@@ -40,16 +41,21 @@ async def send_bot_message(http_client: httpx.AsyncClient, chat_id: int, text: s
 async def handle_bot_command(http_client: httpx.AsyncClient, message: dict):
     text = message.get("text", "")
     chat_id = message["chat"].get("id")
+    sender_id = message.get("from", {}).get("id")
 
     if not text.startswith("/"):
         return
 
     command, *args = text.split()
-    command = command[1:]
+    command = command[1:].lower()
     log(f"Received command '{command}' from chat {chat_id}")
 
     if command == "start":
-        await send_bot_message(http_client, chat_id, "Hello! I am the Car Scraper Bot. Use /s to start scraping.")
+        await send_bot_message(http_client, chat_id, "Hello! I am the Car Scraper Bot.\n\n🚗 Forward a car post to me to get more details or a direct link to the listing.")
+        return
+
+    if sender_id != ADMIN_ID:
+        log(f"Unauthorized command '{command}' from {sender_id}")
         return
 
     if command == "s":

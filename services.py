@@ -84,16 +84,28 @@ def _has_phone_number(text: str) -> bool:
     return bool(re.search(pattern, text))
 
 
-def _clean_phone_numbers(data):
+def _has_link(text: str) -> bool:
+    if not text or not isinstance(text, str):
+        return False
+    # Covers explicit schemes, www links, and common Telegram handle links.
+    pattern = r"(?i)\b(?:https?://|www\.)\S+|\b(?:t\.me|telegram\.me)/\S+"
+    return bool(re.search(pattern, text))
+
+
+def _should_remove_text(text: str) -> bool:
+    return _has_phone_number(text) or _has_link(text)
+
+
+def _clean_contact_and_links(data):
     if isinstance(data, dict):
         new_data = {}
         for key, value in data.items():
             if key == "additional_details" and isinstance(value, list):
-                new_data[key] = [item for item in value if not _has_phone_number(item)]
+                new_data[key] = [item for item in value if not _should_remove_text(item)]
             elif isinstance(value, (dict, list)):
-                new_data[key] = _clean_phone_numbers(value)
+                new_data[key] = _clean_contact_and_links(value)
             elif isinstance(value, str):
-                if _has_phone_number(value):
+                if _should_remove_text(value):
                     new_data[key] = None
                 else:
                     new_data[key] = value
@@ -101,7 +113,7 @@ def _clean_phone_numbers(data):
                 new_data[key] = value
         return new_data
     elif isinstance(data, list):
-        return [_clean_phone_numbers(item) for item in data]
+        return [_clean_contact_and_links(item) for item in data]
     return data
 
 
@@ -302,7 +314,7 @@ Your primary goal is to determine if the ad is for selling a car and then extrac
         response_content = completion.choices[0].message.content
         log(f"Received from OpenRouter: {response_content}")
         parsed = _parse_llm_json(response_content)
-        return _clean_phone_numbers(parsed)
+        return _clean_contact_and_links(parsed)
     except Exception as e:
         log(f"Error calling OpenRouter or parsing response: {e}")
         return None
